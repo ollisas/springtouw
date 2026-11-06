@@ -50,6 +50,19 @@ test('does not finish a jump across leaving view', () => {
   assert.equal(run(samples).times.length, 0);
 });
 
+test('treats points without a visibility value as visible', () => {
+  const samples = jumpSeries({ jumps: 10 }).map((s) => ({
+    t: s.t,
+    landmarks: s.landmarks.map(({ x, y }) => ({ x, y })),
+  }));
+  inRange(run(samples).times.length, 9, 10);
+});
+
+test('feet below the image edge are out of view', () => {
+  const pose = makePose({ hipY: 0.55, scale: 2.5 }); // romp 0,5: enkels op 1,1 — onder de rand
+  assert.equal(createJumpDetector().push({ t: 0, landmarks: pose }).inView, false);
+});
+
 test('counts nothing when no person is found', () => {
   const r = createJumpDetector().push({ t: 0, landmarks: null });
   assert.deepEqual(r, { jump: false, inView: false });
@@ -57,6 +70,17 @@ test('counts nothing when no person is found', () => {
 
 test('ignores noise', () => {
   const { times } = run(jumpSeries({ jumps: 30, periodMs: 500, heightFrac: 0.08, noise: 0.01 }));
+  inRange(times.length, 29, 30);
+});
+
+// Het echte model schat de romplengte per beeldje ±2,5 % anders (gemeten in het Browser-paneel).
+test('ignores wobble in the torso length while standing', () => {
+  const { times } = run(jumpSeries({ jumps: 0, standBeforeMs: 5000, standAfterMs: 0, torsoJitter: 0.05 }));
+  assert.equal(times.length, 0);
+});
+
+test('counts through wobble in the torso length', () => {
+  const { times } = run(jumpSeries({ jumps: 30, periodMs: 330, heightFrac: 0.1, torsoJitter: 0.05 }));
   inRange(times.length, 29, 30);
 });
 

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Springtouwteller</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <video id="video" playsinline muted autoplay></video>
+
+  <div id="hud" hidden>
+    <div class="bar top">
+      <span id="clock">0:00</span>
+      <span id="tempo">– per min</span>
+    </div>
+    <div id="count" class="count">0</div>
+    <div id="hint" class="hint" hidden>Ga iets verder weg staan</div>
+    <div class="bar bottom">
+      <span id="best">Beste: 0</span>
+      <button id="reset" type="button">Opnieuw</button>
+    </div>
+  </div>
+
+  <div id="start" class="start">
+    <h1>Springtouwteller</h1>
+    <ol>
+      <li>Zet je telefoon rechtop tegen iets aan.</li>
+      <li>Ga 2 à 3 meter ervoor staan.</li>
+      <li>Zorg dat je helemaal in beeld bent, ook je voeten.</li>
+    </ol>
+    <button id="go" type="button">Start camera</button>
+    <p id="status" class="status" role="status"></p>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

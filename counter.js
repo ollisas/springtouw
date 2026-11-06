@@ -10,6 +10,7 @@ export function createJumpDetector({
 } = {}) {
   let sm = null;
   let baseline = null;
+  let torsoRef = null;
   let state = 'ground';
   let lastJumpT = -Infinity;
   let history = [];
@@ -17,12 +18,20 @@ export function createJumpDetector({
   function reset() {
     sm = null;
     baseline = null;
+    torsoRef = null;
     state = 'ground';
     history = [];
   }
 
   function inView(lm) {
-    return Array.isArray(lm) && NEEDED.every((i) => lm[i] && lm[i].visibility >= MIN_VISIBILITY);
+    // Zonder visibility-waarde telt een punt als zichtbaar; een punt buiten het beeld nooit.
+    return (
+      Array.isArray(lm) &&
+      NEEDED.every((i) => {
+        const p = lm[i];
+        return p && (p.visibility ?? 1) >= MIN_VISIBILITY && p.y >= 0 && p.y <= 1 && p.x >= 0 && p.x <= 1;
+      })
+    );
   }
 
   function push({ t, landmarks }) {
@@ -35,11 +44,15 @@ export function createJumpDetector({
     const torso = Math.abs(hipY - shoulderY);
     if (torso < 1e-6) return { jump: false, inView: true };
 
-    const s = (shoulderY + hipY) / 2 / torso;
-    sm = sm === null ? s : sm + 0.5 * (s - sm);
+    // Het model schat de romplengte per beeldje wisselend; gebruik een rustig gemiddelde, en deel alleen
+    // de verandering in hoogte erdoor (niet de hoogte zelf), anders wordt die wisseling "beweging".
+    torsoRef = torsoRef === null ? torso : torsoRef + 0.05 * (torso - torsoRef);
+    const y = (shoulderY + hipY) / 2;
+    sm = sm === null ? y : sm + 0.5 * (y - sm);
     baseline = baseline === null ? sm : baseline + 0.05 * (sm - baseline);
+    const up = (baseline - sm) / torsoRef; // positief = lichaam hoger dan normaal, in romplengtes
 
-    history.push({ t, v: sm });
+    history.push({ t, v: up });
     while (history.length && history[0].t < t - ampWindowMs) history.shift();
     let lo = Infinity;
     let hi = -Infinity;
@@ -48,7 +61,6 @@ export function createJumpDetector({
       if (h.v > hi) hi = h.v;
     }
     const th = Math.max(minRise, adaptFactor * (hi - lo));
-    const up = baseline - sm;
 
     let jump = false;
     if (state === 'ground') {

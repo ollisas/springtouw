@@ -12,16 +12,19 @@ export function mulberry32(seed) {
 }
 
 // hipY: hoogte van de heupen; scale: grootte in beeld (1 = romp van 0,2 beeldhoogte).
-export function makePose({ cx = 0.5, hipY = 0.55, scale = 1, visible = true, jitter = null } = {}) {
+// torsoFactor: geschatte romplengte wijkt af (zoals het echte model doet), het midden van de romp blijft staan.
+export function makePose({ cx = 0.5, hipY = 0.55, scale = 1, visible = true, jitter = null, torsoFactor = 1 } = {}) {
   const torso = BASE_TORSO * scale;
   const pts = Array.from({ length: 33 }, () => ({ x: cx, y: hipY, visibility: 0.9 }));
   const set = (i, x, y) => {
     pts[i] = { x, y: y + (jitter ? jitter() * torso : 0), visibility: 0.9 };
   };
-  set(11, cx - 0.2 * torso, hipY - torso);
-  set(12, cx + 0.2 * torso, hipY - torso);
-  set(23, cx - 0.15 * torso, hipY);
-  set(24, cx + 0.15 * torso, hipY);
+  const midY = hipY - torso / 2;
+  const half = (torso * torsoFactor) / 2;
+  set(11, cx - 0.2 * torso, midY - half);
+  set(12, cx + 0.2 * torso, midY - half);
+  set(23, cx - 0.15 * torso, midY + half);
+  set(24, cx + 0.15 * torso, midY + half);
   set(27, cx - 0.15 * torso, hipY + 1.1 * torso);
   set(28, cx + 0.15 * torso, hipY + 1.1 * torso);
   if (!visible) {
@@ -43,6 +46,7 @@ export function jumpSeries({
   standBeforeMs = 1000,
   standAfterMs = 1000,
   visible = true,
+  torsoJitter = 0,
   seed = 1,
 } = {}) {
   const rand = mulberry32(seed);
@@ -63,7 +67,13 @@ export function jumpSeries({
     }
     samples.push({
       t: startMs + local,
-      landmarks: makePose({ hipY: groundHip - rise, scale, visible, jitter }),
+      landmarks: makePose({
+        hipY: groundHip - rise,
+        scale,
+        visible,
+        jitter,
+        torsoFactor: 1 + (rand() * 2 - 1) * torsoJitter,
+      }),
     });
   }
   return samples;
