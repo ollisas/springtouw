@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createJumpDetector } from '../counter.js';
-import { jumpSeries, makePose } from './synth.js';
+import { jumpSeries, makePose, walkSeries, withDropouts } from './synth.js';
 
 function run(samples, detector = createJumpDetector()) {
   const times = [];
@@ -109,4 +109,48 @@ test('reset forgets a half-finished jump', () => {
   let jumps = 0;
   for (let i = 0; i < 30; i++, t += dt) if (d.push({ t, landmarks: makePose({ hipY: 0.55 }) }).jump) jumps++;
   assert.equal(jumps, 0);
+});
+
+// Bevindingen uit de eindreview.
+test('does not count in the first second after appearing', () => {
+  const samples = jumpSeries({ jumps: 10, standBeforeMs: 0, standAfterMs: 0 });
+  const { times } = run(samples);
+  assert.ok(times.every((t) => t >= 1000));
+  inRange(times.length, 7, 8);
+});
+
+test('counts fast jumps at 15 frames per second', () => {
+  const { times } = run(jumpSeries({ jumps: 60, periodMs: 330, heightFrac: 0.06, fps: 15 }));
+  inRange(times.length, 57, 60);
+});
+
+test('counts calm jumps at 15 frames per second', () => {
+  const { times } = run(jumpSeries({ jumps: 50, periodMs: 500, heightFrac: 0.08, fps: 15 }));
+  inRange(times.length, 48, 50);
+});
+
+test('does not count walking away from the phone', () => {
+  assert.equal(run(walkSeries({ fromScale: 1.6, toScale: 1.0 })).times.length, 0);
+});
+
+test('does not count walking toward the phone', () => {
+  assert.equal(run(walkSeries({ fromScale: 1.0, toScale: 1.6 })).times.length, 0);
+});
+
+test('counts normally after walking back to the spot', () => {
+  const walk = walkSeries({ fromScale: 1.6, toScale: 1.0, standAfterMs: 1000 });
+  const t0 = walk.at(-1).t + 1000 / 30;
+  // Na het lopen staat hij op schaal 1 met de voeten op 0,80, dus de heupen op 0,58.
+  const jumps = jumpSeries({ jumps: 20, startMs: t0, standBeforeMs: 0, standAfterMs: 1000, groundHip: 0.58 });
+  inRange(run([...walk, ...jumps]).times.length, 19, 20);
+});
+
+test('keeps counting through single frames with a hidden ankle', () => {
+  const { times } = run(withDropouts(jumpSeries({ jumps: 30, periodMs: 400 }), 0.05));
+  inRange(times.length, 29, 30);
+});
+
+test('a single hidden frame does not show the hint', () => {
+  const samples = withDropouts(jumpSeries({ jumps: 10 }), 0.05);
+  assert.ok(run(samples).results.slice(5).every((r) => r.inView));
 });

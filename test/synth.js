@@ -47,12 +47,12 @@ export function jumpSeries({
   standAfterMs = 1000,
   visible = true,
   torsoJitter = 0,
+  groundHip = 0.55,
   seed = 1,
 } = {}) {
   const rand = mulberry32(seed);
   const jitter = noise ? () => (rand() * 2 - 1) * noise : null;
   const torso = BASE_TORSO * scale;
-  const groundHip = 0.55;
   const dt = 1000 / fps;
   const jumpMs = jumps * periodMs;
   const total = standBeforeMs + jumpMs + standAfterMs;
@@ -77,4 +77,42 @@ export function jumpSeries({
     });
   }
   return samples;
+}
+
+// Lopen naar of van de telefoon: het lichaam wordt groter of kleiner in beeld, de voeten blijven
+// op de vloer (verder weg = hoger in beeld), en elke stap wipt de heupen een beetje op.
+export function walkSeries({
+  fromScale = 1.6,
+  toScale = 1.0,
+  durationMs = 2500,
+  bobFrac = 0.06,
+  periodMs = 500,
+  fps = 30,
+  standAfterMs = 1000,
+  startMs = 0,
+} = {}) {
+  const dt = 1000 / fps;
+  const samples = [];
+  for (let k = 0; k * dt <= durationMs + standAfterMs; k++) {
+    const local = k * dt;
+    const f = Math.min(local / durationMs, 1);
+    const scale = fromScale + (toScale - fromScale) * f;
+    const torso = BASE_TORSO * scale;
+    const feetY = 0.97 - 0.17 * ((1.6 - scale) / 0.6);
+    const walking = local < durationMs;
+    const bob = walking ? bobFrac * torso * Math.abs(Math.sin((Math.PI * local) / periodMs)) : 0;
+    samples.push({ t: startMs + local, landmarks: makePose({ hipY: feetY - 1.1 * torso - bob, scale }) });
+  }
+  return samples;
+}
+
+// Losse beeldjes waarin de enkels even wegvallen (touw voor de voeten, bewegingsonscherpte).
+export function withDropouts(samples, fraction, seed = 7) {
+  const rand = mulberry32(seed);
+  return samples.map((s) => {
+    if (rand() >= fraction) return s;
+    const landmarks = s.landmarks.map((p) => ({ ...p }));
+    landmarks[27].visibility = 0.1;
+    return { t: s.t, landmarks };
+  });
 }
